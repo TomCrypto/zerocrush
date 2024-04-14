@@ -1,0 +1,12 @@
+[package]
+name = "zerocrush"
+edition = "2021"
+version = "0.1.0"
+authors = ["Thomas Bénéteau <thomas@bitwise.me>"]
+description = "Low-overhead compression for sparse files."
+documentation = "https://docs.rs/zerocrush"
+repository = "https://github.com/TomCrypto/zerocrush"
+license = "MIT"
+readme = "README.md"
+categories = ["embedded", "compression", "no-std", "no-std::no-alloc"]
+keywords = ["compression", "embedded"]
