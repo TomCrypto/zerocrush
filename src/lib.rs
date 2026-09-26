@@ -2,7 +2,6 @@
 
 #![no_std]
 #![forbid(unsafe_code)]
-#![forbid(missing_docs)]
 
 /// Possible states the decoder can be in.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -91,7 +90,7 @@ impl Decoder {
 
     /// Retrieves the (right-aligned) last partial output byte.
     pub fn partial_output_byte(&self) -> Option<(u8, usize)> {
-        if self.symbol_term && self.output_bits != 0 {
+        if self.symbol_term && self.output_bits != 0 && self.output_bits < 8 {
             Some((self.output_data, self.output_bits))
         } else {
             None
@@ -282,7 +281,7 @@ impl Encoder {
                 return (consumed_len, produced_len, EncoderState::CanProduce);
             }
 
-            if self.output_term {
+            if self.output_term && self.symbol_bits == 0 {
                 break;
             }
         }
@@ -300,6 +299,10 @@ impl Encoder {
     }
 
     fn consume(&mut self, consumed: &[u8], consumed_len: &mut usize) -> bool {
+        if !self.queued_done && self.queued_bits > self.continuation_bits() {
+            return false;
+        }
+
         if self.output_bits == 0 && !self.symbol_term {
             if let Some(&byte) = consumed.get(*consumed_len) {
                 self.output_data = byte;
@@ -345,6 +348,7 @@ impl Encoder {
         if self.symbol_bits <= 8 {
             if self.symbol_term && !self.output_term {
                 self.symbol_data |= 0b000000000000111111111111 << (8 - self.symbol_bits);
+                self.output_term = true;
 
                 if self.symbol_bits == 0 {
                     self.symbol_bits = 24;
@@ -514,6 +518,10 @@ impl Encoder {
                     self.queued_bits = 0;
                     self.queued_done = false;
                 }
+            } else if self.queued_bits > self.continuation_bits() {
+                self.symbol_data |= 0b000000000000111111111101 << (8 - self.symbol_bits);
+                self.symbol_bits += 24;
+                self.queued_bits -= self.continuation_bits();
             }
         }
 
@@ -529,11 +537,11 @@ impl Encoder {
             }
         }
 
-        if self.symbol_term && self.symbol_bits == 0 {
-            self.output_term = true;
-        }
-
         false
+    }
+
+    fn continuation_bits(&self) -> usize {
+        if self.queued_mode { 4106 } else { 12284 }
     }
 }
 

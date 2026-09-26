@@ -1,7 +1,7 @@
 [package]
 name = "zerocrush"
-edition = "2021"
-version = "0.1.0"
+edition = "2024"
+version = "0.2.0"
 authors = ["Thomas Bénéteau <thomas@bitwise.me>"]
 description = "Low-overhead compression for sparse files."
 documentation = "https://docs.rs/zerocrush"

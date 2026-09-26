@@ -446,6 +446,27 @@ fn decode_streaming() {
             }
         )
     );
+
+    decoder.reset();
+
+    assert_eq!(
+        decoder.step(&[0xB6, 0xD0, 0x00, 0xFF, 0xF0], &mut []),
+        (5, 0, DecoderState::CanProduce)
+    );
+    assert_eq!(decoder.partial_output_byte(), None);
+    assert_eq!(
+        decoder.step(&[], &mut buffer[..1]),
+        (
+            0,
+            1,
+            DecoderState::Terminated {
+                corrupted: false,
+                unaligned: false
+            }
+        )
+    );
+    assert_eq!(&buffer[..1], &[0x55]);
+    assert_eq!(decoder.partial_output_byte(), None);
 }
 
 #[test]
@@ -519,5 +540,81 @@ fn encode_streaming() {
     assert_eq!(
         encoder.step(&[0b01010101], &mut buffer[9..]),
         (0, 0, EncoderState::Terminated)
+    );
+
+    encoder.reset();
+    encoder.set_consumed_bytes_end();
+
+    assert_eq!(
+        encoder.step(&[], &mut buffer[..1]),
+        (0, 1, EncoderState::CanProduce)
+    );
+    assert_eq!(
+        encoder.step(&[], &mut buffer[1..2]),
+        (0, 1, EncoderState::CanProduce)
+    );
+    assert_eq!(
+        encoder.step(&[], &mut buffer[2..3]),
+        (0, 1, EncoderState::Terminated)
+    );
+    assert_eq!(&buffer[..3], &[0x00, 0x0F, 0xFF]);
+
+    encoder.reset();
+    encoder.set_consumed_bytes_end();
+
+    assert_eq!(
+        encoder.step(&[], &mut buffer[..2]),
+        (0, 2, EncoderState::CanProduce)
+    );
+    assert_eq!(
+        encoder.step(&[], &mut buffer[2..3]),
+        (0, 1, EncoderState::Terminated)
+    );
+    assert_eq!(&buffer[..3], &[0x00, 0x0F, 0xFF]);
+
+    encoder.reset();
+    encoder.set_consumed_bytes_end();
+
+    assert_eq!(
+        encoder.step(&[0x00; 512], &mut buffer[..1]),
+        (512, 1, EncoderState::CanProduce)
+    );
+    assert_eq!(
+        encoder.step(&[], &mut buffer[1..3]),
+        (0, 2, EncoderState::CanProduce)
+    );
+    assert_eq!(
+        encoder.step(&[], &mut buffer[3..6]),
+        (0, 3, EncoderState::Terminated)
+    );
+    assert_eq!(&buffer[..6], &[0x00, 0x10, 0x01, 0x00, 0x0F, 0xFF]);
+
+    encoder.reset();
+
+    assert_eq!(
+        encoder.step(&[0x00; 1536], &mut buffer),
+        (1536, 3, EncoderState::CanConsume)
+    );
+    encoder.set_consumed_bytes_end();
+    assert_eq!(
+        encoder.step(&[], &mut buffer[3..]),
+        (0, 4, EncoderState::Terminated)
+    );
+    assert_eq!(&buffer[..7], &[0x00, 0x0F, 0xFD, 0x50, 0x00, 0xFF, 0xF0]);
+
+    encoder.reset();
+
+    assert_eq!(
+        encoder.step(&[0xFF; 514], &mut buffer),
+        (514, 6, EncoderState::CanConsume)
+    );
+    encoder.set_consumed_bytes_end();
+    assert_eq!(
+        encoder.step(&[], &mut buffer[6..]),
+        (0, 4, EncoderState::Terminated)
+    );
+    assert_eq!(
+        &buffer[..10],
+        &[0x00, 0x0F, 0xFE, 0x00, 0x0F, 0xFD, 0x04, 0x00, 0x3F, 0xFC]
     );
 }
